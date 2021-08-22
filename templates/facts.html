@@ -1,0 +1,61 @@
+{% extends 'base.html'  %}
+
+{% block content %}
+<h1>Facts</h1>
+<div class="card my-4">
+    <div class="card-body">
+      <h5 class="card-title text-info">          
+          {% for datas in data %}
+          <p>User:{{ datas['user'] }}</p>
+          <p>Text:{{ datas['text'] }}</p>
+          {% endfor %}
+          
+        </h5>
+    </div> 
+</div>
+<div>
+  {% for fact in facts %}
+  <div class="card my-4">
+    <div class="card-body">
+      <h5 class="card-title text-info">
+        {{fact.user.username}}
+        {% if session['user_id'] == fact.user_id %}
+        <form style="display:inline;" action="/facts/{{fact.id}}" method="POST">
+          <button class="btn btn-sm btn-danger"><i class="fa-solid fa-trash-can"></i></button>
+        </form>
+        {% endif %}
+      </h5>
+      <h6 class="card-subtitle mb-2 text-muted"></h6>
+      <p class="card-text">
+        {{fact.text}}
+      </p>
+
+    </div>
+  </div>
+
+  {%  endfor %}
+</div> 
+
+
+<form method="POST">
+
+  {{ form.hidden_tag() }}
+
+  {% for field in form
+      if field.widget.input_type != 'hidden' %}
+  <p>
+    {{ field.label }}
+    {{ field(class_="form-control") }}
+
+    {% for error in field.errors %}
+    <span class="form-text text-danger">{{ error }}</span>
+    {% endfor %}
+  </p>
+  {% endfor %}
+
+  <button class="btn btn-success" type="submit">Add New Fact</button>
+</form>
+
+
+
+{% endblock %}
