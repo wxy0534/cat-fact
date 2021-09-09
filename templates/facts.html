@@ -1,18 +1,23 @@
 {% extends 'base.html'  %}
 
 {% block content %}
-<h1>Facts</h1>
-<div class="card my-4">
+
+
+<h2>Facts From External API</h2>
+<div>
+  <div class="card my-4">
     <div class="card-body">
-      <h5 class="card-title text-info">          
-          {% for datas in data %}
-          <p>User:{{ datas['user'] }}</p>
-          <p>Text:{{ datas['text'] }}</p>
-          {% endfor %}
-          
-        </h5>
+      <h6 class="card-subtitle mb-2 text-muted">          
+          {% for fact in ext_facts %}
+          <p class="card-text">              
+          {{ fact.fact }}
+          </p>
+          {% endfor %}          
+      </h6>
     </div> 
+  </div>
 </div>
+
 <div>
   {% for fact in facts %}
   <div class="card my-4">
@@ -37,24 +42,30 @@
 </div> 
 
 
-<form method="POST">
+{% if user_facts is not none %}
+  <h2>My Facts</h2>
+  <form method="POST">
 
-  {{ form.hidden_tag() }}
-
-  {% for field in form
-      if field.widget.input_type != 'hidden' %}
-  <p>
-    {{ field.label }}
-    {{ field(class_="form-control") }}
-
-    {% for error in field.errors %}
-    <span class="form-text text-danger">{{ error }}</span>
+    {{ form.hidden_tag() }}
+  
+    {% for field in form
+        if field.widget.input_type != 'hidden' %}
+    <p>
+      {{ field.label }}
+      {{ field(class_="form-control") }}
+  
+      {% for error in field.errors %}
+      <span class="form-text text-danger">{{ error }}</span>
+      {% endfor %}
+    </p>
     {% endfor %}
-  </p>
-  {% endfor %}
+  
+    <button class="btn btn-success" type="submit">Add New Fact</button>
+  </form>
 
-  <button class="btn btn-success" type="submit">Add New Fact</button>
-</form>
+{% else %}
+  <a href="/facts/new">Add your own Cat Facts</a>
+{% endif %}
 
 
 

@@ -11,13 +11,18 @@ def connect_db(app):
 
 
 class Fact(db.Model):
-    __tabelname__ = 'facts'
+    __tablename__ = 'facts'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     text = db.Column(db.Text, nullable=False, unique=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    # Include nullable to have each fact to be tied to a user
+    user_id = db.Column(
+        db.Integer, 
+        db.ForeignKey('users.id', ondelete='CASCADE'), 
+        nullable=False,
+    )
 
-    user = db.relationship('User', backref='facts')
+    user = db.relationship('User')
         
 
 class User(db.Model):
@@ -26,21 +31,36 @@ class User(db.Model):
     
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     username = db.Column(db.Text, nullable=False, unique=True)
-    password = db.Column(db.Text, nullable=False, unique=True)    
-    # likes = db.relationship( 'Message',secondary="likes")
+    password = db.Column(db.Text, nullable=False, unique=False)    
+    
+    facts = db.relationship('Fact')
+
+    def __repr__(self):
+        return f"<User #{self.id}: {self.username}, {self.password}>"
 
     @classmethod
     def register(cls, username, pwd):
         hashed = bcrypt.generate_password_hash(pwd)       
-        hashed_utf8 = hashed.decode("utf8")        
-        return cls(username=username, password=hashed_utf8)
+        hashed_pwd = hashed.decode("UTF-8")        
+        print(hashed_pwd)
+        user = User(
+            username=username,
+            password=hashed_pwd
+        )
+
+        db.session.add(user)
+        return user
    
     @classmethod
     def authenticate(cls, username, pwd):    
 
-        u = User.query.filter_by(username=username).first()
-        if u and bcrypt.check_password_hash(u.password, pwd):            
-            return u
+        user = cls.query.filter_by(username=username).first()
+        if user:
+            print(user.password.encode('utf-8'))    
+            print(pwd)
+            is_auth = bcrypt.check_password_hash(user.password.encode('utf-8'), pwd)      
+            if is_auth:
+                return user
         else:
             return False
 

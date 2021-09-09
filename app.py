@@ -1,24 +1,44 @@
-from flask import Flask, render_template, redirect, request, flash, session, jsonify
+from flask import Flask, render_template, redirect, request, flash, session, jsonify, g
 from flask_debugtoolbar import DebugToolbarExtension
 from forms import UserForm, FactForm
 from models import connect_db, db, User, Fact
 from sqlalchemy.exc import IntegrityError
 import requests 
 import json
+import os
 
 
 app = Flask(__name__)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = 'postgresql:///number_db'
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get('DATABASE_URL','postgresql:///number_db')
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ECHO"] = True
-app.config['SECRET_KEY'] = "pingann39"
-# app.config['WTF_CSRF_SECRET_KEY'] = "secretkey"
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY','pingann39')
 app.config["DEBUG_TB_INTERCEPT_REDIRECTS"] = False
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 toolbar = DebugToolbarExtension(app)
 
 
 connect_db(app)
+CURR_USER_KEY='user_id'
+
+@app.before_request
+def add_user_to_g():
+        """If we're logged in, add curr user to Flask global."""
+        if CURR_USER_KEY in session:
+                g.user = User.query.get(session[CURR_USER_KEY])
+        else:
+                g.user = None
+def do_login(user):
+    """Log in user."""
+    session[CURR_USER_KEY] = user.id
+
+
+def do_logout():
+    """Logout user."""
+    if CURR_USER_KEY in session:
+        del session[CURR_USER_KEY]
+
 
 
 @app.route('/')
@@ -35,6 +55,7 @@ def login_user():
                 user = User.authenticate(name, pwd)
                 if user:
                         session['user_id'] = user.id
+                        flash("success")
                         return redirect('/facts')
                 else:
                         form.username.errors = ['Invalid Username/Password'] 
@@ -48,10 +69,11 @@ def register_user():
         if form.validate_on_submit():
                 username = form.username.data
                 password = form.password.data
-                new_user = User.register(username, password)
+                
 
-                db.session.add(new_user)
+                #db.session.add(new_user)
                 try:
+                        new_user = User.register(username, password)
                         db.session.commit()
                 except IntegrityError:
                         form.username.errors.append('Username was taken. Please pick anoter')
@@ -66,20 +88,35 @@ def register_user():
 @app.route('/facts', methods=['GET', 'POST']) 
 def show_facts():
         form = FactForm()
-        res = requests.get('https://cat-fact.herokuapp.com/facts')
-        data = res.content
-        all_facts = Fact.query.all()
-        if form.validate_on_submit():
-
-                text = form.text.data
-                new_fact = Fact(text=text, user_id=session['user_id'])
-                db.session.add(new_fact)
-                db.session.commit()
-                flash('New Fact Created!', 'success')
-                return redirect('/facts')
-
-        return render_template("facts.html", form=form, data=data, facts=all_facts)
+        res = requests.get('https://catfact.ninja/facts')
+        json = res.json()
+               
+        user_facts = None
+        if g.user:
+                user = User.query.get_or_404(g.user.id)
+                user_facts = (Fact.query.filter(Fact.user_id == g.user.id).limit(15).all())
         
+        return render_template("facts.html", form=form, user_facts=user_facts, ext_facts=json['data'])
+
+
+@app.route('/facts/new', methods=["GET", "POST"])
+def facts_add():
+        if not g.user:
+                flash("Access Denied!", "danger")
+                return redirect("/login")
+
+        form = FactForm()
+        
+        if form.validate_on_submit():
+                
+                msg = Fact(text=form.text.data)                
+                g.user.facts.append(msg)
+                db.session.commit()
+
+                return redirect("/facts")
+        
+        return render_template('facts.html', form=form)
+
 
 @app.route('/facts/<int:id>', methods=["POST"])
 def delete_fact(id):
